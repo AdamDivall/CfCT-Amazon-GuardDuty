@@ -31,6 +31,8 @@ The reason I've adapted the original template is because of the following:
 
 ![alt](./diagrams/aws-guardduty.png)
 
+## Pre-Requisites and Installation
+
 ### Pre-Requisites
 
 There is an overarching assumption that you already have [Customisation for Control Tower](https://aws.amazon.com/solutions/implementations/customizations-for-aws-control-tower/) deployed within your Control Tower Environment.
