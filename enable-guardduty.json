@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "OrganizationId",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "GuardDutyMasterAccountId",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "LogArchiveAccountId",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "S3SourceBucket",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "S3Key",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "RoleToAssume",
+    "ParameterValue": "AWSControlTowerExecution"
+  }
+]

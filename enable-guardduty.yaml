@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates a Lambda function to delegate GuardDuty master account in an AWS Organization.  A custom resource is created to immediately invoke the lambda function upon successful deployment.
+Parameters:
+  OrganizationId:
+    Type: String
+    Description: "The Amazon Organizations ID for Control Tower."
+    MinLength: 12
+    MaxLength: 12
+    AllowedPattern: '^[o][\-][a-z0-9]{10}$'
+    ConstraintDescription: "The Organization ID must be a 12 character string starting with o- and followed by 10 Lowercase Alphanumeric Characters."
+  GuardDutyMasterAccountId:
+    Type: String
+    Description: "The AWS Account ID that will be configured as the Delegated Admin."
+    AllowedPattern: '^[0-9]{12}$'
+    ConstraintDescription: "This must be a 12 character string."
+    MinLength: 12
+    MaxLength: 12
+  LogArchiveAccountId:
+    Type: String
+    Description: "The Amazon Control Tower Log Archive Account ID that will be configured with an S3 Bucket for the storing of centralised findings."
+    AllowedPattern: '^[0-9]{12}$'
+    ConstraintDescription: "TThis must be a 12 character string."
+    MinLength: 12
+    MaxLength: 12
+  S3SourceBucket:
+    Type: String
+    Description: "The S3 Bucket that contains the Lambda Zip File."
+  S3Key:
+    Type: String
+    Description: "The S3 Path to the Lambda Zip File"
+  RoleToAssume:
+    Type: String
+    Default: 'AWSControlTowerExecution'
+    Description: "What role should be assumed in accounts to enable GuardDuty?  The Default is AWSControlTowerExecution for a Control Tower environment."
+Resources:
+  CustomResourceEnableGuardDuty:
+    Type: Custom::EnableGuardDuty
+    Properties:
+      ServiceToken: !GetAtt LambdaEnableGuardDuty.Arn
+  LambdaEnableGuardDuty: 
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - x86_64
+      Code: 
+        S3Bucket: !Ref S3SourceBucket
+        S3Key: !Ref S3Key
+      Description: "Lambda Function that is triggered by CloudFormation Custom Resource to Enable GuardDuty by Default."
+      FunctionName: Lambda-Enable-GuardDuty
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRoleEnableGuardDuty.Arn
+      Runtime: python3.9
+      MemorySize: 256
+      Timeout: 600
+      Environment:
+        Variables:
+            GUARDDUTY_MASTER_ACCOUNT_ID: !Ref GuardDutyMasterAccountId
+            LOG_ARCHIVE_ACCOUNT_ID: !Ref LogArchiveAccountId
+            ROLE_TO_ASSUME: !Ref RoleToAssume
+  LambdaRoleEnableGuardDuty: 
+    Type: AWS::IAM::Role
+    Properties: 
+      Description: "Service-Role for Lambda-Enable-GuardDuty to have the required access to execute successfully"
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "lambda.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: 
+      - PolicyName: "Enable-GuardDuty"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - "sts:AssumeRole"
+            Resource: !Sub "arn:aws:iam::*:role/${RoleToAssume}"
+            Condition:
+              StringEquals:
+                "aws:PrincipalOrgId": !Ref OrganizationId
+          - Effect: "Allow"
+            Action:
+              - "guardduty:CreateDetector"
+              - "guardduty:CreatePublishingDestination"
+              - "guardduty:CreateMembers"
+              - "guardduty:DeleteDetector"
+              - "guardduty:DisableOrganizationAdminAccount"
+              - "guardduty:EnableOrganizationAdminAccount"
+              - "guardduty:ListDetectors"
+              - "guardduty:ListPublishingDestinations"
+              - "guardduty:ListOrganizationAdminAccounts"
+              - "guardduty:UpdateDetector"
+              - "guardduty:UpdateMemberDetectors"
+              - "guardduty:UpdateOrganizationConfiguration"
+              - "guardduty:UpdatePublishingDestination"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+              - "s3:CreateBucket"
+              - "s3:ListBucket"
+              - "s3:PutBucketPolicy"
+              - "s3:PutEncryptionConfiguration"
+              - "s3:PutBucketLogging"
+              - "s3:PutBucketVersioning"
+            Resource: 
+              - !Sub "arn:aws:s3:::aws-guardduty-${LogArchiveAccountId}-${AWS::Region}"
+          - Effect: "Allow"
+            Action:
+              - "s3:GetObject"
+            Resource: 
+              - !Sub "arn:aws:s3:::aws-guardduty-${LogArchiveAccountId}-${AWS::Region}/*"
+          - Effect: "Allow"
+            Action:
+              - "kms:CreateAlias"
+              - "kms:CreateKey"
+              - "kms:DescribeKey"
+              - "kms:EnableKeyRotation"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+              - "organizations:DescribeOrganization"
+              - "organizations:EnableAWSServiceAccess"
+              - "organizations:ListAccounts"
+              - "organizations:ListAWSServiceAccessForOrganization"
+              - "organizations:ListDelegatedAdministrators"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+              - "organizations:DescribeAccount"
+              - "organizations:DescribeOrganizationalUnit"
+              - "organizations:RegisterDelegatedAdministrator"
+            Resource: 
+              - !Sub "arn:aws:organizations::${AWS::AccountId}:account/${OrganizationId}/*"
+              - !Sub "arn:aws:organizations::${AWS::AccountId}:account/${OrganizationId}/ou-*"
+          - Effect: "Allow"
+            Action:
+              - "cloudformation:ListStackInstances"
+            Resource: "*"
+  LifeCycleRuleGuardDuty: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "Amazon GuardDuty LifeCycle Trigger"
+      EventPattern:
+        source: 
+          - "aws.controltower"
+        detail-type:
+          - "AWS Service Event via CloudTrail"
+        detail:
+          eventName:
+            - "CreateManagedAccount"
+      State: "ENABLED"
+      Targets: 
+        - Arn: !GetAtt LambdaEnableGuardDuty.Arn
+          Id: "NewAccount"
+  PermissionForCTEventToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !GetAtt LambdaEnableGuardDuty.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt LifeCycleRuleGuardDuty.Arn
