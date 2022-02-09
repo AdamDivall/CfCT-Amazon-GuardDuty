@@ -38,7 +38,7 @@ The reason I've adapted the original template is because of the following:
 There is an overarching assumption that you already have [Customisation for Control Tower](https://aws.amazon.com/solutions/implementations/customizations-for-aws-control-tower/) deployed within your Control Tower Environment.
 
 1.  Clone the GitHub Repo to your local device.
-2.  Create an S3 Bucket where you'll then upload the `guardduty.zip` file to. Make a note of the bucket name and the prefix to the `guarduty.zip`.
+2.  Create an S3 Bucket where you'll then upload the `guardduty.zip` file to. Make a note of the bucket name and the prefix to the `guarduty.zip`. Note: The region where you create the bucket will need to be in the region of the Control Tower home region since that is where the Lambda Function will be created.
 
 ### Installation
 
@@ -81,7 +81,7 @@ There is an overarching assumption that you already have [Customisation for Cont
     ]
     ```
 
-4.  Update the `manifest.yaml` and configure the `deployment_targets` and `regions` accordingly based on your needs. The deployment target should be the AWS Control Tower Management Account since the Lambda Function that is invoked uses API Calls that are run are only available to the Master Account.
+4.  Update the `manifest.yaml` and configure the `deployment_targets` and `regions` accordingly based on your needs. The deployment target should be the AWS Control Tower Management Account since the Lambda Function that is invoked uses API Calls that are run are only available to the Master Account whilst the region should be configured to the Control Tower home region.
 
     ```yaml 
     - name: Enable-Amazon-GuardDuty
@@ -91,7 +91,7 @@ There is an overarching assumption that you already have [Customisation for Cont
       deploy_method: stack_set
       deployment_targets:
         accounts:
-            - # Either the 12-digit Account ID or the Logical Name for the Control Tower Management Account
+          - # Either the 12-digit Account ID or the Logical Name for the Control Tower Management Account
       regions:
         - # AWS Region that is configured as the Home Region within Control Tower
     ```
