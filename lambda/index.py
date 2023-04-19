@@ -10,7 +10,7 @@ log_archive_account_id=os.environ['LOG_ARCHIVE_ACCOUNT_ID']
 role_to_assume=os.environ['ROLE_TO_ASSUME']
 
 def lambda_handler(event, context):
-    
+
     # Get a list of all Available Regions supported by Amazon GuardDuty
     guardduty_regions=boto3.Session().get_available_regions('guardduty')
 
@@ -24,7 +24,7 @@ def lambda_handler(event, context):
     accounts=get_all_accounts()
 
     if 'RequestType' in event:
-    
+
         # AWS CloudFormation Create/Update Stack.
         if (event['RequestType'] == 'Create' or event['RequestType'] == 'Update'):
             try:
@@ -45,8 +45,8 @@ def lambda_handler(event, context):
 
                             # Configure Amazon GuardDuty with a Publishing Destination for GuardDuty Findings in the GuardDuty Admin Account that leverages the Amazon S3 Bucket that has been created in "create_s3_destination". Then loop through all 'ACTIVE' AWS Account in the AWS Organization and add them as a GuardDuty Member (and therefore behind the scenes creating a Detector).  Finally update the Organization Configuration and all GuardDuty Members so that S3 Protection is enabled.
                             enable_guardduty_member(guardduty_master_account_session, region, publishing_destination, accounts)
-            except ClientError as e: 
-                print(e.response['Error']['Message']) 
+            except ClientError as e:
+                print(e.response['Error']['Message'])
                 cfnresponse.send(event, context, cfnresponse.FAILED, e.response)
 
         # AWS CloudFormation Delete Stack.
@@ -63,8 +63,8 @@ def lambda_handler(event, context):
                 # Disable the Delegated Admin for Amazon GuardDuty.
                 disable_guardduty_master()
 
-            except ClientError as e: 
-                print(e.response['Error']['Message']) 
+            except ClientError as e:
+                print(e.response['Error']['Message'])
                 cfnresponse.send(event, context, cfnresponse.FAILED, e.response)
 
         cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
@@ -95,12 +95,12 @@ def get_control_tower_regions():
     Returns:
         List of AWS Control Tower governed regions.
     """
-    
+
     cloudformation_client=boto3.client('cloudformation')
     control_tower_regions=set()
     try:
         stack_instances=cloudformation_client.list_stack_instances(
-            StackSetName="AWSControlTowerBP-BASELINE-CONFIG"
+            StackSetName="AWSControlTowerBP-BASELINE-CLOUDWATCH"
         )
         for stack in stack_instances['Summaries']:
             control_tower_regions.add(stack['Region'])
@@ -171,7 +171,7 @@ def create_s3_destination(sts_session):
     Returns:
         Properties for the Amazon GuardDuty Publishing Destination.
     """
-    
+
     log_archive_account_session=assume_role(log_archive_account_id, role_to_assume)
     sts_client=log_archive_account_session.client('sts')
     s3_client=log_archive_account_session.client('s3')
@@ -316,15 +316,15 @@ def create_s3_destination(sts_session):
 
 def create_kms_key(session, region):
     """
-    Description: 
+    Description:
         Create the AWS KMS Key required for the GuardDuty Publishing Destination in the specified region.
     Parameters:
         "session" = STS Session of the GuardDuty Master Account.
         "region" = AWS Region where GuardDuty Delegated Admin is to be enabled.
-    Returns:        
+    Returns:
         ARN of the KMS Key that is created.
     """
-    
+
     kms_client=session.client('kms', region_name=region)
     key_alias='alias/ControlTowerGuardduty'
 
@@ -422,7 +422,7 @@ def create_kms_key(session, region):
 
 def enable_guardduty_master(region):
     """
-    Description: 
+    Description:
         Enable the Amaazon GuardDuty Delegated Admin Account from the AWS Control Tower Management Account.
     Parameters:
         "region" = AWS Region where GuardDuty Delegated Admin is to be enabled.
@@ -456,7 +456,7 @@ def enable_guardduty_master(region):
         return skipregion
     except Exception as e:
         print(e)
-        
+
 def enable_guardduty_member(guardduty_master_account_session, region, destination_properties, accounts):
     """
     Description:
@@ -467,16 +467,16 @@ def enable_guardduty_member(guardduty_master_account_session, region, destinatio
         "destination_properties" = Properties for the Amazon GuardDuty Publishing Destination.
         "accounts" = List of all Active AWS Accounts within the AWS Organization.
     """
-    
+
     delegated_admin_client=guardduty_master_account_session.client('guardduty', region_name=region)
     try:
         detector_ids=delegated_admin_client.list_detectors()
     except Exception as ex:
         print(f"Unable to list Amazon GuardDuty Detectors in region {region}. Error: {ex}")
         return
-    detector_id=detector_ids['DetectorIds'][0] 
+    detector_id=detector_ids['DetectorIds'][0]
     publishing_destinations=delegated_admin_client.list_publishing_destinations(
-        DetectorId=detector_id 
+        DetectorId=detector_id
     )
     try:
       if not publishing_destinations['Destinations']:
@@ -577,7 +577,7 @@ def disable_guardduty_master():
     Parameters:
         "region" = AWS Region where the Delegated Admin for Amazon GuardDuty is to be disabled.
     """
-    
+
     guardduty_client=boto3.client('guardduty')
     try:
         guardduty_client.disable_organization_admin_account(
@@ -601,7 +601,7 @@ def disable_guardduty_member(guardduty_master_account_session, region, accounts)
     except Exception as ex:
         print(f"Unable to list Amazon GuardDuty Detectors in region {region}. Error: {ex}")
         return
-    detector_id=detector_ids['DetectorIds'][0] 
+    detector_id=detector_ids['DetectorIds'][0]
     all_account_ids=[]
     for account in accounts:
         member_account_session=assume_role(account['Id'], role_to_assume)
