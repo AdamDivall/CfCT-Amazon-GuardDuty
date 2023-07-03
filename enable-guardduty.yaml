@@ -37,12 +37,12 @@ Resources:
     Type: Custom::EnableGuardDuty
     Properties:
       ServiceToken: !GetAtt LambdaEnableGuardDuty.Arn
-  LambdaEnableGuardDuty: 
+  LambdaEnableGuardDuty:
     Type: AWS::Lambda::Function
     Properties:
       Architectures:
         - x86_64
-      Code: 
+      Code:
         S3Bucket: !Ref S3SourceBucket
         S3Key: !Ref S3Key
       Description: "Lambda Function that is triggered by CloudFormation Custom Resource to Enable GuardDuty by Default."
@@ -57,23 +57,23 @@ Resources:
             GUARDDUTY_MASTER_ACCOUNT_ID: !Ref GuardDutyMasterAccountId
             LOG_ARCHIVE_ACCOUNT_ID: !Ref LogArchiveAccountId
             ROLE_TO_ASSUME: !Ref RoleToAssume
-  LambdaRoleEnableGuardDuty: 
+  LambdaRoleEnableGuardDuty:
     Type: AWS::IAM::Role
-    Properties: 
+    Properties:
       Description: "Service-Role for Lambda-Enable-GuardDuty to have the required access to execute successfully"
-      AssumeRolePolicyDocument: 
+      AssumeRolePolicyDocument:
         Version: "2012-10-17"
-        Statement: 
+        Statement:
           - Effect: "Allow"
-            Principal: 
-              Service: 
+            Principal:
+              Service:
                 - "lambda.amazonaws.com"
-            Action: 
+            Action:
               - "sts:AssumeRole"
       Path: "/"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-      Policies: 
+      Policies:
       - PolicyName: "Enable-GuardDuty"
         PolicyDocument:
           Version: "2012-10-17"
@@ -109,12 +109,12 @@ Resources:
               - "s3:PutEncryptionConfiguration"
               - "s3:PutBucketLogging"
               - "s3:PutBucketVersioning"
-            Resource: 
+            Resource:
               - !Sub "arn:aws:s3:::aws-guardduty-${LogArchiveAccountId}-${AWS::Region}"
           - Effect: "Allow"
             Action:
               - "s3:GetObject"
-            Resource: 
+            Resource:
               - !Sub "arn:aws:s3:::aws-guardduty-${LogArchiveAccountId}-${AWS::Region}/*"
           - Effect: "Allow"
             Action:
@@ -136,19 +136,19 @@ Resources:
               - "organizations:DescribeAccount"
               - "organizations:DescribeOrganizationalUnit"
               - "organizations:RegisterDelegatedAdministrator"
-            Resource: 
+            Resource:
               - !Sub "arn:aws:organizations::${AWS::AccountId}:account/${OrganizationId}/*"
               - !Sub "arn:aws:organizations::${AWS::AccountId}:account/${OrganizationId}/ou-*"
           - Effect: "Allow"
             Action:
               - "cloudformation:ListStackInstances"
             Resource: "*"
-  LifeCycleRuleGuardDuty: 
+  LifeCycleRuleGuardDuty:
     Type: AWS::Events::Rule
-    Properties: 
+    Properties:
       Description: "Amazon GuardDuty LifeCycle Trigger"
       EventPattern:
-        source: 
+        source:
           - "aws.controltower"
         detail-type:
           - "AWS Service Event via CloudTrail"
@@ -156,12 +156,12 @@ Resources:
           eventName:
             - "CreateManagedAccount"
       State: "ENABLED"
-      Targets: 
+      Targets:
         - Arn: !GetAtt LambdaEnableGuardDuty.Arn
           Id: "NewAccount"
-  PermissionForCTEventToInvokeLambda: 
+  PermissionForCTEventToInvokeLambda:
     Type: AWS::Lambda::Permission
-    Properties: 
+    Properties:
       FunctionName: !GetAtt LambdaEnableGuardDuty.Arn
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
